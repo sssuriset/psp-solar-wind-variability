@@ -1,0 +1,25 @@
+PFSS source-surface-height sensitivity summary
+
+Target poster relation:
+ rss                     x         y   method        r   n  p_two_sided_abs  abs_percentile
+ 2.0 pfss_equator_abs_mean bmag_mean spearman 0.285312 214         0.002499           99.80
+ 2.5 pfss_equator_abs_mean bmag_mean spearman 0.276180 214         0.002999           99.75
+ 3.0 pfss_equator_abs_mean bmag_mean spearman 0.209601 214         0.024488           97.60
+
+Best all-height ballistic correlations:
+ rss                     x            y   method        r   n  p_two_sided_abs  abs_percentile
+ 2.0 pfss_equator_abs_mean    bmag_mean spearman 0.285312 214         0.002499           99.80
+ 2.5 pfss_equator_abs_mean    bmag_mean spearman 0.276180 214         0.002999           99.75
+ 2.0  pfss_midlat_abs_mean    bmag_mean spearman 0.270035 214         0.007996           99.25
+ 2.0 pfss_equator_abs_mean    pdyn_mean spearman 0.269968 214         0.018991           98.15
+ 2.0 pfss_equator_abs_mean density_mean spearman 0.269182 214         0.021989           97.85
+ 2.0  pfss_midlat_abs_mean density_mean spearman 0.264168 214         0.035482           96.50
+ 2.0 pfss_equator_abs_mean    bmag_mean  pearson 0.256577 214         0.006497           99.40
+ 2.5  pfss_midlat_abs_mean    bmag_mean spearman 0.249592 214         0.015992           98.45
+ 2.0  pfss_midlat_abs_mean    pdyn_mean spearman 0.243863 214         0.049975           95.05
+ 2.5 pfss_equator_abs_mean    bmag_mean  pearson 0.238321 214         0.006997           99.35
+ 2.0  pfss_global_abs_mean    bmag_mean spearman 0.234279 214         0.026487           97.40
+ 2.0  pfss_midlat_abs_mean    bmag_mean  pearson 0.233199 214         0.012494           98.80
+ 2.5 pfss_equator_abs_mean    pdyn_mean spearman 0.226893 214         0.041479           95.90
+ 2.5  pfss_midlat_abs_mean    bmag_mean  pearson 0.223615 214         0.009495           99.10
+ 2.5 pfss_equator_abs_mean density_mean spearman 0.222922 214         0.050475           95.00

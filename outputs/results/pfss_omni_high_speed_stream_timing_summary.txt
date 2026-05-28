@@ -1,0 +1,32 @@
+High-speed stream timing diagnostic
+
+Definition:
+For each CR and source-surface height, OMNI speed peaks were compared with the nearest PFSS equatorial unsigned Br peak after speed-dependent ballistic alignment.
+This is a peak-alignment diagnostic, not a calibrated solar-wind speed prediction.
+
+Summary by source-surface height:
+ rss  matched_stream_peaks  median_abs_timing_error_days  mean_abs_timing_error_days  median_abs_phase_error_deg  mean_abs_phase_error_deg
+ 2.0                    11                      1.555556                    2.340909                        20.0                 30.909091
+ 2.5                    11                      3.750000                    3.376263                        50.0                 44.545455
+ 3.0                    11                      3.111111                    3.239899                        40.0                 42.727273
+
+Summary by CR:
+ rss   cr  matched_stream_peaks  median_abs_timing_error_days  mean_abs_timing_error_days  median_abs_phase_error_deg
+ 2.0 2281                     1                      3.750000                    3.750000                        50.0
+ 2.0 2283                     1                      3.750000                    3.750000                        50.0
+ 2.0 2284                     2                      3.000000                    3.000000                        40.0
+ 2.0 2286                     2                      1.166667                    1.166667                        15.0
+ 2.0 2287                     3                      1.500000                    1.750000                        20.0
+ 2.0 2290                     2                      2.333333                    2.333333                        30.0
+ 2.5 2281                     1                      3.750000                    3.750000                        50.0
+ 2.5 2283                     1                      3.750000                    3.750000                        50.0
+ 2.5 2284                     2                      3.000000                    3.000000                        40.0
+ 2.5 2286                     2                      1.166667                    1.166667                        15.0
+ 2.5 2287                     3                      6.000000                    4.250000                        80.0
+ 2.5 2290                     2                      4.277778                    4.277778                        55.0
+ 3.0 2281                     1                      3.000000                    3.000000                        40.0
+ 3.0 2283                     1                      3.750000                    3.750000                        50.0
+ 3.0 2284                     2                      3.000000                    3.000000                        40.0
+ 3.0 2286                     2                      1.166667                    1.166667                        15.0
+ 3.0 2287                     3                      6.000000                    4.000000                        80.0
+ 3.0 2290                     2                      4.277778                    4.277778                        55.0

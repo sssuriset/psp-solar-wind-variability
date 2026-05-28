@@ -1,0 +1,16 @@
+scan_shift_deg,cr,x,y,method,r,n,abs_r
+40.0,all,pfss_equator_abs_mean,density_mean,pearson,0.23733815912779482,216,0.23733815912779482
+30.0,all,pfss_equator_abs_mean,density_mean,pearson,0.2362065145901847,216,0.2362065145901847
+30.0,all,pfss_equator_abs_mean,density_mean,spearman,0.23111611236142365,216,0.23111611236142365
+35.0,all,pfss_equator_abs_mean,density_mean,pearson,0.23027719674202163,215,0.23027719674202163
+90.0,all,pfss_global_abs_mean,ma_mean,spearman,-0.2252670310434751,216,0.2252670310434751
+40.0,all,pfss_equator_abs_mean,density_mean,spearman,0.2240143369175627,216,0.2240143369175627
+100.0,all,pfss_global_abs_mean,ma_mean,spearman,-0.22029316853022776,216,0.22029316853022776
+40.0,all,pfss_midlat_abs_mean,density_mean,pearson,0.21865969677870964,216,0.21865969677870964
+90.0,all,pfss_global_abs_mean,bmag_mean,spearman,0.21825099131925838,216,0.21825099131925838
+95.0,all,pfss_global_abs_mean,bmag_mean,spearman,0.21608867460242379,216,0.21608867460242379
+80.0,all,pfss_global_abs_mean,ma_mean,spearman,-0.2154550542397504,216,0.2154550542397504
+30.0,all,pfss_midlat_abs_mean,density_mean,pearson,0.2152160207825049,216,0.2152160207825049
+95.0,all,pfss_global_abs_mean,ma_mean,spearman,-0.21485546620299933,215,0.21485546620299933
+45.0,all,pfss_equator_abs_mean,density_mean,pearson,0.21350712794109888,215,0.21350712794109888
+85.0,all,pfss_global_abs_mean,ma_mean,spearman,-0.21182834649472337,215,0.21182834649472337

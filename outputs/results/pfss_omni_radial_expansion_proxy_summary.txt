@@ -1,0 +1,35 @@
+Radial expansion proxy summary
+
+Definition:
+f_proxy = |B_photosphere| / (rss^2 |B_source_surface|), computed in longitude bins.
+expansion_speed_proxy = -log10(f_proxy), so larger values correspond to smaller expansion proxy.
+This is not a true traced WSA flux-tube expansion factor.
+
+Target relation:
+ rss  cr                                  x          y   method         r   n
+ 2.0 all expansion_speed_proxy_equator_mean speed_mean spearman -0.072933 214
+ 2.5 all expansion_speed_proxy_equator_mean speed_mean spearman -0.038051 214
+ 3.0 all expansion_speed_proxy_equator_mean speed_mean spearman -0.052534 214
+
+Best all-height, all-CR correlations:
+ rss                                   x            y   method         r   n
+ 2.0 radial_expansion_proxy_equator_mean density_mean spearman -0.269075 214
+ 2.0 radial_expansion_proxy_equator_mean    bmag_mean spearman -0.259902 214
+ 2.0  expansion_speed_proxy_equator_mean    bmag_mean spearman  0.256687 214
+ 2.0   expansion_speed_proxy_midlat_mean    bmag_mean spearman  0.248461 214
+ 2.0   expansion_speed_proxy_global_mean    bmag_mean spearman  0.246269 214
+ 2.0  expansion_speed_proxy_equator_mean density_mean spearman  0.245448 214
+ 2.0  radial_expansion_proxy_global_mean    bmag_mean spearman -0.241853 214
+ 2.0  radial_expansion_proxy_midlat_mean    pdyn_mean spearman -0.237344 214
+ 2.5 radial_expansion_proxy_equator_mean    bmag_mean spearman -0.232892 214
+ 2.0  radial_expansion_proxy_midlat_mean    bmag_mean spearman -0.231915 214
+ 2.0   expansion_speed_proxy_midlat_mean    pdyn_mean spearman  0.231159 214
+ 2.5  expansion_speed_proxy_equator_mean    bmag_mean spearman  0.229640 214
+ 2.0  radial_expansion_proxy_midlat_mean density_mean spearman -0.222868 214
+ 2.0 radial_expansion_proxy_equator_mean    pdyn_mean spearman -0.221175 214
+ 2.5   expansion_speed_proxy_midlat_mean    bmag_mean spearman  0.218413 214
+ 2.5   expansion_speed_proxy_global_mean    bmag_mean spearman  0.217593 214
+ 2.0   expansion_speed_proxy_midlat_mean density_mean spearman  0.214986 214
+ 2.5  radial_expansion_proxy_global_mean    bmag_mean spearman -0.214980 214
+ 2.0  expansion_speed_proxy_equator_mean    pdyn_mean spearman  0.210684 214
+ 2.5  radial_expansion_proxy_midlat_mean    bmag_mean spearman -0.209588 214

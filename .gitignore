@@ -1,0 +1,36 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# raw and processed science data are too large for GitHub
+data/raw/
+data/processed/
+*.fits
+*.fts
+*.fits.gz
+
+# old nested project archive
+test_archive/
+
+# logs and cache
+*.log
+.ipynb_checkpoints/
+.cache/
+
+# keep lightweight metadata if present
+!data/
+data/*
+!data/metadata/
+!data/metadata/*.csv
+
+# keep selected result summaries, tables, and poster figures
+outputs/*
+!outputs/results/
+!outputs/results/*.txt
+!outputs/tables/
+!outputs/tables/*.csv
+!outputs/poster_figures/
+!outputs/poster_figures/*.png
+!outputs/poster_figures/*.pdf
+
+.gitignore.backup

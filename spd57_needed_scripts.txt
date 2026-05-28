@@ -1,0 +1,1099 @@
+===== scripts/17_build_pfss_omni_ballistic_match.py =====
+     1	from pathlib import Path
+     2	
+     3	import matplotlib
+     4	matplotlib.use("Agg")
+     5	
+     6	import matplotlib.pyplot as plt
+     7	import numpy as np
+     8	import pandas as pd
+     9	
+    10	b = Path.cwd()
+    11	
+    12	pf = b / "data" / "processed" / "pfss" / "hmi_longitude_proxies" / "pfss_hmi_selected_crs_rss2.5_longitude_profiles_all.csv"
+    13	of = b / "data" / "processed" / "omni" / "omni_selected_crs_clean_with_phase.csv"
+    14	mf = b / "metadata" / "rotation_manifest.csv"
+    15	
+    16	cd = b / "data" / "processed" / "comparison"
+    17	fd = b / "outputs" / "figures" / "comparison"
+    18	td = b / "outputs" / "tables"
+    19	
+    20	cd.mkdir(parents=True, exist_ok=True)
+    21	fd.mkdir(parents=True, exist_ok=True)
+    22	td.mkdir(parents=True, exist_ok=True)
+    23	
+    24	au = 149597870.7
+    25	rs = 695700.0
+    26	rss = 2.5
+    27	dsec = 86400.0
+    28	
+    29	p = pd.read_csv(pf)
+    30	o = pd.read_csv(of)
+    31	m = pd.read_csv(mf)
+    32	
+    33	if "ballistic_match_status" not in m.columns:
+    34	    m["ballistic_match_status"] = ""
+    35	
+    36	for c in ["ballistic_match_status", "notes"]:
+    37	    if c not in m.columns:
+    38	        m[c] = ""
+    39	    m[c] = m[c].fillna("").astype(str)
+    40	
+    41	pc = [
+    42	    "cr",
+    43	    "lon_deg",
+    44	    "equator_signed_br",
+    45	    "equator_abs_br",
+    46	    "midlat_signed_br",
+    47	    "midlat_abs_br",
+    48	    "global_signed_br",
+    49	    "global_abs_br",
+    50	    "equator_polarity",
+    51	    "global_polarity",
+    52	]
+    53	
+    54	oc = [
+    55	    "cr",
+    56	    "time",
+    57	    "tday",
+    58	    "rot_frac",
+    59	    "lon_deg_proxy",
+    60	    "speed_km_s",
+    61	    "bx_gse_nt",
+    62	    "by_gse_nt",
+    63	    "bz_gse_nt",
+    64	    "bmag_nt",
+    65	    "density_cm3",
+    66	    "pdyn_npa",
+    67	    "va_km_s",
+    68	    "ma",
+    69	]
+    70	
+    71	pm = [c for c in pc if c not in p.columns]
+    72	om = [c for c in oc if c not in o.columns]
+    73	
+    74	if len(pm) > 0:
+    75	    raise RuntimeError(f"Missing PFSS columns: {pm}")
+    76	
+    77	if len(om) > 0:
+    78	    raise RuntimeError(f"Missing OMNI columns: {om}")
+    79	
+    80	p = p[pc].copy()
+    81	o = o[oc].copy()
+    82	
+    83	p["cr"] = pd.to_numeric(p["cr"], errors="coerce").astype(int)
+    84	o["cr"] = pd.to_numeric(o["cr"], errors="coerce").astype(int)
+    85	
+    86	p["lon_bin"] = np.mod(np.rint(p["lon_deg"]).astype(int), 360)
+    87	p = p.rename(columns={"lon_deg": "pfss_lon_deg"})
+    88	
+    89	o["time"] = pd.to_datetime(o["time"], utc=True, errors="coerce")
+    90	
+    91	for c in oc:
+    92	    if c not in ["time"]:
+    93	        o[c] = pd.to_numeric(o[c], errors="coerce")
+    94	
+    95	o = o.dropna(subset=["cr", "time", "lon_deg_proxy", "speed_km_s"]).copy()
+    96	
+    97	js = []
+    98	ls = []
+    99	
+   100	print(f"Project base: {b}")
+   101	print(f"PFSS table: {pf}")
+   102	print(f"OMNI table: {of}")
+   103	print()
+   104	
+   105	for cr in sorted(o["cr"].dropna().astype(int).unique()):
+   106	    print("=" * 80)
+   107	    print(f"CR {cr}")
+   108	
+   109	    q = o[o["cr"] == cr].copy()
+   110	    pp = p[p["cr"] == cr].copy()
+   111	
+   112	    if len(pp) == 0:
+   113	        print("No PFSS rows for this CR.")
+   114	        m.loc[m["cr"].astype(int) == cr, "ballistic_match_status"] = "fail_no_pfss_rows"
+   115	        continue
+   116	
+   117	    x = q[(q["lon_deg_proxy"] > 1) & (q["tday"] > 0)].copy()
+   118	    pr = 27.2753
+   119	
+   120	    if len(x) > 0:
+   121	        vv = 360.0 * x["tday"] / x["lon_deg_proxy"]
+   122	        vv = vv.replace([np.inf, -np.inf], np.nan).dropna()
+   123	        vv = vv[(vv > 20) & (vv < 40)]
+   124	
+   125	        if len(vv) > 0:
+   126	            pr = float(vv.median())
+   127	
+   128	    v = q["speed_km_s"].copy()
+   129	    v[v <= 0] = np.nan
+   130	
+   131	    tau = ((au - rss * rs) / v) / dsec
+   132	    sd = 360.0 * tau / pr
+   133	    blon = np.mod(q["lon_deg_proxy"] - sd, 360.0)
+   134	
+   135	    q["ballistic_lag_days"] = tau
+   136	    q["ballistic_shift_deg"] = sd
+   137	    q["ballistic_lon_deg"] = blon
+   138	
+   139	    q = q.dropna(subset=["ballistic_lon_deg"]).copy()
+   140	    q["lon_bin"] = np.floor(q["ballistic_lon_deg"]).astype(int).clip(0, 359)
+   141	
+   142	    j = q.merge(pp, on=["cr", "lon_bin"], how="left")
+   143	
+   144	    miss = int(j["equator_abs_br"].isna().sum())
+   145	
+   146	    j["ballistic_phase10_deg"] = np.floor(j["ballistic_lon_deg"] / 10.0) * 10.0
+   147	    j["ballistic_phase10_deg"] = j["ballistic_phase10_deg"].clip(0, 350)
+   148	
+   149	    js.append(j)
+   150	
+   151	    ls.append({
+   152	        "cr": cr,
+   153	        "rows": int(len(j)),
+   154	        "period_days": pr,
+   155	        "lag_mean_days": float(j["ballistic_lag_days"].mean()),
+   156	        "lag_min_days": float(j["ballistic_lag_days"].min()),
+   157	        "lag_max_days": float(j["ballistic_lag_days"].max()),
+   158	        "shift_mean_deg": float(j["ballistic_shift_deg"].mean()),
+   159	        "shift_min_deg": float(j["ballistic_shift_deg"].min()),
+   160	        "shift_max_deg": float(j["ballistic_shift_deg"].max()),
+   161	        "unmatched_rows": miss,
+   162	    })
+   163	
+   164	    ms = m["cr"].astype(int) == cr
+   165	
+   166	    if miss == 0:
+   167	        m.loc[ms, "ballistic_match_status"] = "pass_pfss_omni_ballistic_match"
+   168	    else:
+   169	        m.loc[ms, "ballistic_match_status"] = "warn_unmatched_ballistic_rows"
+   170	
+   171	    nt = "PFSS and OMNI ballistic-lag diagnostic table created."
+   172	    old = m.loc[ms, "notes"].iloc[0]
+   173	
+   174	    if nt not in old:
+   175	        m.loc[ms, "notes"] = old + " | " + nt
+   176	
+   177	    print(f"Rows matched: {len(j)}")
+   178	    print(f"Unmatched rows: {miss}")
+   179	    print(f"Period used: {pr:.4f} days")
+   180	    print(f"Mean lag: {j['ballistic_lag_days'].mean():.3f} days")
+   181	    print(f"Mean longitude shift: {j['ballistic_shift_deg'].mean():.3f} deg")
+   182	
+   183	if len(js) == 0:
+   184	    raise RuntimeError("No ballistic matched rows were created.")
+   185	
+   186	j = pd.concat(js, ignore_index=True)
+   187	l = pd.DataFrame(ls).sort_values("cr")
+   188	
+   189	jp = cd / "pfss_omni_ballistic_matched_rows.csv"
+   190	lp = cd / "pfss_omni_ballistic_lag_summary.csv"
+   191	lt = td / "pfss_omni_ballistic_lag_summary_compact.csv"
+   192	
+   193	j.to_csv(jp, index=False)
+   194	l.to_csv(lp, index=False)
+   195	l.to_csv(lt, index=False)
+   196	
+   197	g = j.groupby(["cr", "ballistic_phase10_deg"], as_index=False).agg(
+   198	    n=("time", "size"),
+   199	    speed_mean=("speed_km_s", "mean"),
+   200	    speed_std=("speed_km_s", "std"),
+   201	    bmag_mean=("bmag_nt", "mean"),
+   202	    bmag_std=("bmag_nt", "std"),
+   203	    density_mean=("density_cm3", "mean"),
+   204	    density_std=("density_cm3", "std"),
+   205	    pdyn_mean=("pdyn_npa", "mean"),
+   206	    pdyn_std=("pdyn_npa", "std"),
+   207	    va_mean=("va_km_s", "mean"),
+   208	    ma_mean=("ma", "mean"),
+   209	    lag_mean_days=("ballistic_lag_days", "mean"),
+   210	    shift_mean_deg=("ballistic_shift_deg", "mean"),
+   211	    pfss_equator_abs_mean=("equator_abs_br", "mean"),
+   212	    pfss_equator_signed_mean=("equator_signed_br", "mean"),
+   213	    pfss_midlat_abs_mean=("midlat_abs_br", "mean"),
+   214	    pfss_global_abs_mean=("global_abs_br", "mean"),
+   215	    pfss_global_signed_mean=("global_signed_br", "mean"),
+   216	)
+   217	
+   218	gp = cd / "pfss_omni_ballistic_phase10_binned.csv"
+   219	g.to_csv(gp, index=False)
+   220	
+   221	xs = [
+   222	    "pfss_equator_abs_mean",
+   223	    "pfss_midlat_abs_mean",
+   224	    "pfss_global_abs_mean",
+   225	]
+   226	
+   227	ys = [
+   228	    "speed_mean",
+   229	    "bmag_mean",
+   230	    "density_mean",
+   231	    "pdyn_mean",
+   232	    "ma_mean",
+   233	]
+   234	
+   235	def cor(d, x, y, md):
+   236	    q = d[[x, y]].replace([np.inf, -np.inf], np.nan).dropna()
+   237	
+   238	    if len(q) < 3:
+   239	        return np.nan, len(q)
+   240	
+   241	    if q[x].std() == 0 or q[y].std() == 0:
+   242	        return np.nan, len(q)
+   243	
+   244	    return float(q[x].corr(q[y], method=md)), len(q)
+   245	
+   246	rs = []
+   247	
+   248	for x in xs:
+   249	    for y in ys:
+   250	        rr, n = cor(g, x, y, "pearson")
+   251	        rs.append({"cr": "all", "x": x, "y": y, "method": "pearson", "r": rr, "n": n})
+   252	
+   253	        rr, n = cor(g, x, y, "spearman")
+   254	        rs.append({"cr": "all", "x": x, "y": y, "method": "spearman", "r": rr, "n": n})
+   255	
+   256	for cr in sorted(g["cr"].dropna().astype(int).unique()):
+   257	    q = g[g["cr"] == cr]
+   258	
+   259	    for x in xs:
+   260	        for y in ys:
+   261	            rr, n = cor(q, x, y, "pearson")
+   262	            rs.append({"cr": cr, "x": x, "y": y, "method": "pearson", "r": rr, "n": n})
+   263	
+   264	            rr, n = cor(q, x, y, "spearman")
+   265	            rs.append({"cr": cr, "x": x, "y": y, "method": "spearman", "r": rr, "n": n})
+   266	
+   267	r = pd.DataFrame(rs)
+   268	
+   269	rp = cd / "pfss_omni_ballistic_correlation_summary.csv"
+   270	rt = td / "pfss_omni_ballistic_correlation_summary_compact.csv"
+   271	
+   272	r.to_csv(rp, index=False)
+   273	r.to_csv(rt, index=False)
+   274	
+   275	for x, y, fn, lab in [
+   276	    ("pfss_equator_abs_mean", "speed_mean", "ballistic_eqabs_vs_omni_speed.png", "OMNI speed, km/s"),
+   277	    ("pfss_equator_abs_mean", "bmag_mean", "ballistic_eqabs_vs_omni_bmag.png", "OMNI |B|, nT"),
+   278	    ("pfss_global_abs_mean", "speed_mean", "ballistic_globalabs_vs_omni_speed.png", "OMNI speed, km/s"),
+   279	    ("pfss_global_abs_mean", "bmag_mean", "ballistic_globalabs_vs_omni_bmag.png", "OMNI |B|, nT"),
+   280	]:
+   281	    plt.figure(figsize=(7, 5))
+   282	
+   283	    for cr in sorted(g["cr"].dropna().astype(int).unique()):
+   284	        q = g[g["cr"] == cr]
+   285	        plt.scatter(q[x], q[y], label=f"CR {cr}", s=18)
+   286	
+   287	    plt.xlabel(x)
+   288	    plt.ylabel(lab)
+   289	    plt.title(fn.replace(".png", ""))
+   290	    plt.legend(fontsize=8)
+   291	    plt.tight_layout()
+   292	    plt.savefig(fd / fn, dpi=200)
+   293	    plt.close()
+   294	
+   295	for y, lab, fn in [
+   296	    ("speed_mean", "OMNI speed, km/s", "ballistic_phase10_omni_speed_by_cr.png"),
+   297	    ("bmag_mean", "OMNI |B|, nT", "ballistic_phase10_omni_bmag_by_cr.png"),
+   298	    ("pfss_equator_abs_mean", "PFSS equator unsigned Br", "ballistic_phase10_pfss_eqabs_by_cr.png"),
+   299	    ("lag_mean_days", "Ballistic lag, days", "ballistic_phase10_lag_by_cr.png"),
+   300	]:
+   301	    plt.figure(figsize=(10, 5))
+   302	
+   303	    for cr in sorted(g["cr"].dropna().astype(int).unique()):
+   304	        q = g[g["cr"] == cr]
+   305	        plt.plot(q["ballistic_phase10_deg"], q[y], label=f"CR {cr}")
+   306	
+   307	    plt.xlabel("Ballistic-shifted source-surface phase, degrees")
+   308	    plt.ylabel(lab)
+   309	    plt.title(fn.replace(".png", ""))
+   310	    plt.legend(fontsize=8)
+   311	    plt.tight_layout()
+   312	    plt.savefig(fd / fn, dpi=200)
+   313	    plt.close()
+   314	
+   315	m.to_csv(mf, index=False)
+   316	
+   317	print()
+   318	print("Ballistic match summary:")
+   319	print(f"Matched rows: {len(j)}")
+   320	print(f"Unmatched rows: {int(j['equator_abs_br'].isna().sum())}")
+   321	print(f"10 degree bins: {len(g)}")
+   322	print(f"CRs: {sorted(j['cr'].dropna().astype(int).unique().tolist())}")
+   323	
+   324	print()
+   325	print("Lag summary:")
+   326	print(l.to_string(index=False))
+   327	
+   328	print()
+   329	print("Best all-CR absolute ballistic correlations:")
+   330	q = r[(r["cr"].astype(str) == "all") & (r["r"].notna())].copy()
+   331	q["abs_r"] = q["r"].abs()
+   332	q = q.sort_values("abs_r", ascending=False).head(12)
+   333	print(q[["x", "y", "method", "r", "n"]].to_string(index=False))
+   334	
+   335	print()
+   336	print(f"Saved matched rows: {jp}")
+   337	print(f"Saved lag summary: {lp}")
+   338	print(f"Saved 10 degree binned table: {gp}")
+   339	print(f"Saved correlation table: {rp}")
+   340	print(f"Saved compact correlation table: {rt}")
+   341	print(f"Saved figures: {fd}")
+   342	
+   343	print()
+   344	print("Manifest ballistic match status:")
+   345	print(m[["cr", "proxy_status", "omni_feature_status", "phase_match_status", "ballistic_match_status"]].to_string(index=False))
+   346	
+   347	print()
+   348	print("Status: pass")
+
+===== scripts/18_scan_pfss_omni_fixed_lags.py =====
+     1	from pathlib import Path
+     2	
+     3	import matplotlib
+     4	matplotlib.use("Agg")
+     5	
+     6	import matplotlib.pyplot as plt
+     7	import numpy as np
+     8	import pandas as pd
+     9	
+    10	b = Path.cwd()
+    11	
+    12	pf = b / "data" / "processed" / "pfss" / "hmi_longitude_proxies" / "pfss_hmi_selected_crs_rss2.5_longitude_profiles_all.csv"
+    13	of = b / "data" / "processed" / "omni" / "omni_selected_crs_clean_with_phase.csv"
+    14	bf = b / "data" / "processed" / "comparison" / "pfss_omni_ballistic_correlation_summary.csv"
+    15	mf = b / "metadata" / "rotation_manifest.csv"
+    16	
+    17	cd = b / "data" / "processed" / "comparison"
+    18	fd = b / "outputs" / "figures" / "comparison"
+    19	td = b / "outputs" / "tables"
+    20	
+    21	cd.mkdir(parents=True, exist_ok=True)
+    22	fd.mkdir(parents=True, exist_ok=True)
+    23	td.mkdir(parents=True, exist_ok=True)
+    24	
+    25	p = pd.read_csv(pf)
+    26	o = pd.read_csv(of)
+    27	br = pd.read_csv(bf)
+    28	m = pd.read_csv(mf)
+    29	
+    30	if "lag_scan_status" not in m.columns:
+    31	    m["lag_scan_status"] = ""
+    32	
+    33	for c in ["lag_scan_status", "notes"]:
+    34	    if c not in m.columns:
+    35	        m[c] = ""
+    36	    m[c] = m[c].fillna("").astype(str)
+    37	
+    38	pc = [
+    39	    "cr",
+    40	    "lon_deg",
+    41	    "equator_abs_br",
+    42	    "midlat_abs_br",
+    43	    "global_abs_br",
+    44	]
+    45	
+    46	oc = [
+    47	    "cr",
+    48	    "time",
+    49	    "lon_deg_proxy",
+    50	    "speed_km_s",
+    51	    "bmag_nt",
+    52	    "density_cm3",
+    53	    "pdyn_npa",
+    54	    "ma",
+    55	]
+    56	
+    57	pm = [c for c in pc if c not in p.columns]
+    58	om = [c for c in oc if c not in o.columns]
+    59	
+    60	if len(pm) > 0:
+    61	    raise RuntimeError(f"Missing PFSS columns: {pm}")
+    62	
+    63	if len(om) > 0:
+    64	    raise RuntimeError(f"Missing OMNI columns: {om}")
+    65	
+    66	p = p[pc].copy()
+    67	o = o[oc].copy()
+    68	
+    69	p["cr"] = pd.to_numeric(p["cr"], errors="coerce").astype(int)
+    70	o["cr"] = pd.to_numeric(o["cr"], errors="coerce").astype(int)
+    71	
+    72	p["lon_bin"] = np.mod(np.rint(p["lon_deg"]).astype(int), 360)
+    73	p = p.rename(columns={"lon_deg": "pfss_lon_deg"})
+    74	
+    75	for c in oc:
+    76	    if c != "time":
+    77	        o[c] = pd.to_numeric(o[c], errors="coerce")
+    78	
+    79	o["time"] = pd.to_datetime(o["time"], utc=True, errors="coerce")
+    80	o = o.dropna(subset=["cr", "time", "lon_deg_proxy"]).copy()
+    81	
+    82	xs = [
+    83	    "pfss_equator_abs_mean",
+    84	    "pfss_midlat_abs_mean",
+    85	    "pfss_global_abs_mean",
+    86	]
+    87	
+    88	ys = [
+    89	    "speed_mean",
+    90	    "bmag_mean",
+    91	    "density_mean",
+    92	    "pdyn_mean",
+    93	    "ma_mean",
+    94	]
+    95	
+    96	def cor(d, x, y, md):
+    97	    q = d[[x, y]].replace([np.inf, -np.inf], np.nan).dropna()
+    98	
+    99	    if len(q) < 3:
+   100	        return np.nan, len(q)
+   101	
+   102	    if q[x].std() == 0 or q[y].std() == 0:
+   103	        return np.nan, len(q)
+   104	
+   105	    return float(q[x].corr(q[y], method=md)), len(q)
+   106	
+   107	gr = []
+   108	rr = []
+   109	
+   110	print(f"Project base: {b}")
+   111	print("Scanning fixed longitude shifts from 0 to 120 deg")
+   112	print()
+   113	
+   114	for sh in range(0, 121, 5):
+   115	    q = o.copy()
+   116	
+   117	    q["scan_shift_deg"] = float(sh)
+   118	    q["scan_lon_deg"] = np.mod(q["lon_deg_proxy"] - sh, 360.0)
+   119	    q["lon_bin"] = np.floor(q["scan_lon_deg"]).astype(int).clip(0, 359)
+   120	
+   121	    j = q.merge(p, on=["cr", "lon_bin"], how="left")
+   122	    j["scan_phase10_deg"] = np.floor(j["scan_lon_deg"] / 10.0) * 10.0
+   123	    j["scan_phase10_deg"] = j["scan_phase10_deg"].clip(0, 350)
+   124	
+   125	    g = j.groupby(["cr", "scan_phase10_deg"], as_index=False).agg(
+   126	        n=("time", "size"),
+   127	        speed_mean=("speed_km_s", "mean"),
+   128	        bmag_mean=("bmag_nt", "mean"),
+   129	        density_mean=("density_cm3", "mean"),
+   130	        pdyn_mean=("pdyn_npa", "mean"),
+   131	        ma_mean=("ma", "mean"),
+   132	        pfss_equator_abs_mean=("equator_abs_br", "mean"),
+   133	        pfss_midlat_abs_mean=("midlat_abs_br", "mean"),
+   134	        pfss_global_abs_mean=("global_abs_br", "mean"),
+   135	    )
+   136	
+   137	    g["scan_shift_deg"] = float(sh)
+   138	    gr.append(g)
+   139	
+   140	    for x in xs:
+   141	        for y in ys:
+   142	            for md in ["pearson", "spearman"]:
+   143	                rv, n = cor(g, x, y, md)
+   144	                rr.append({
+   145	                    "scan_shift_deg": float(sh),
+   146	                    "cr": "all",
+   147	                    "x": x,
+   148	                    "y": y,
+   149	                    "method": md,
+   150	                    "r": rv,
+   151	                    "n": n,
+   152	                })
+   153	
+   154	    for cr in sorted(g["cr"].dropna().astype(int).unique()):
+   155	        z = g[g["cr"] == cr]
+   156	
+   157	        for x in xs:
+   158	            for y in ys:
+   159	                for md in ["pearson", "spearman"]:
+   160	                    rv, n = cor(z, x, y, md)
+   161	                    rr.append({
+   162	                        "scan_shift_deg": float(sh),
+   163	                        "cr": cr,
+   164	                        "x": x,
+   165	                        "y": y,
+   166	                        "method": md,
+   167	                        "r": rv,
+   168	                        "n": n,
+   169	                    })
+   170	
+   171	ga = pd.concat(gr, ignore_index=True)
+   172	ra = pd.DataFrame(rr)
+   173	
+   174	gp = cd / "pfss_omni_fixed_lag_scan_binned.csv"
+   175	rp = cd / "pfss_omni_fixed_lag_scan_correlations.csv"
+   176	rt = td / "pfss_omni_fixed_lag_scan_correlations_compact.csv"
+   177	
+   178	ga.to_csv(gp, index=False)
+   179	ra.to_csv(rp, index=False)
+   180	ra.to_csv(rt, index=False)
+   181	
+   182	qa = ra[(ra["cr"].astype(str) == "all") & (ra["r"].notna())].copy()
+   183	qa["abs_r"] = qa["r"].abs()
+   184	
+   185	best = qa.sort_values("abs_r", ascending=False).head(15)
+   186	
+   187	bp = cd / "pfss_omni_fixed_lag_scan_best_all.csv"
+   188	bt = td / "pfss_omni_fixed_lag_scan_best_all_compact.csv"
+   189	
+   190	best.to_csv(bp, index=False)
+   191	best.to_csv(bt, index=False)
+   192	
+   193	bal = br[(br["cr"].astype(str) == "all") & (br["r"].notna())].copy()
+   194	bal["abs_r"] = bal["r"].abs()
+   195	
+   196	bc = bal.sort_values("abs_r", ascending=False).head(15)
+   197	
+   198	for x, y, md, fn in [
+   199	    ("pfss_equator_abs_mean", "bmag_mean", "spearman", "scan_eqabs_bmag_spearman_by_shift.png"),
+   200	    ("pfss_equator_abs_mean", "bmag_mean", "pearson", "scan_eqabs_bmag_pearson_by_shift.png"),
+   201	    ("pfss_equator_abs_mean", "pdyn_mean", "spearman", "scan_eqabs_pdyn_spearman_by_shift.png"),
+   202	    ("pfss_equator_abs_mean", "density_mean", "spearman", "scan_eqabs_density_spearman_by_shift.png"),
+   203	    ("pfss_midlat_abs_mean", "bmag_mean", "spearman", "scan_midabs_bmag_spearman_by_shift.png"),
+   204	]:
+   205	    q = qa[(qa["x"] == x) & (qa["y"] == y) & (qa["method"] == md)].copy()
+   206	
+   207	    plt.figure(figsize=(8, 5))
+   208	    plt.plot(q["scan_shift_deg"], q["r"], marker="o")
+   209	    plt.axhline(0, linewidth=1)
+   210	    plt.xlabel("Fixed longitude shift, degrees")
+   211	    plt.ylabel(f"{md} r")
+   212	    plt.title(f"{x} vs {y}")
+   213	    plt.tight_layout()
+   214	    plt.savefig(fd / fn, dpi=200)
+   215	    plt.close()
+   216	
+   217	for cr in sorted(o["cr"].dropna().astype(int).unique()):
+   218	    ms = m["cr"].astype(int) == cr
+   219	    m.loc[ms, "lag_scan_status"] = "pass_fixed_lag_scan"
+   220	
+   221	    nt = "Fixed longitude lag scan completed."
+   222	    old = m.loc[ms, "notes"].iloc[0]
+   223	
+   224	    if nt not in old:
+   225	        m.loc[ms, "notes"] = old + " | " + nt
+   226	
+   227	m.to_csv(mf, index=False)
+   228	
+   229	print("Fixed lag scan summary:")
+   230	print(f"Shift count: {len(sorted(ra['scan_shift_deg'].unique()))}")
+   231	print(f"Binned rows: {len(ga)}")
+   232	print(f"Correlation rows: {len(ra)}")
+   233	
+   234	print()
+   235	print("Best fixed-lag all-CR correlations:")
+   236	print(best[["scan_shift_deg", "x", "y", "method", "r", "n"]].to_string(index=False))
+   237	
+   238	print()
+   239	print("Best ballistic all-CR correlations:")
+   240	print(bc[["x", "y", "method", "r", "n"]].to_string(index=False))
+   241	
+   242	print()
+   243	print(f"Saved binned scan table: {gp}")
+   244	print(f"Saved scan correlation table: {rp}")
+   245	print(f"Saved compact scan table: {rt}")
+   246	print(f"Saved best scan table: {bp}")
+   247	print(f"Saved figures: {fd}")
+   248	
+   249	print()
+   250	print("Manifest lag scan status:")
+   251	print(m[["cr", "ballistic_match_status", "lag_scan_status"]].to_string(index=False))
+   252	
+   253	print()
+   254	print("Status: pass")
+
+===== scripts/19_null_ballistic.py =====
+     1	from pathlib import Path
+     2	
+     3	import matplotlib
+     4	matplotlib.use("Agg")
+     5	
+     6	import matplotlib.pyplot as plt
+     7	import numpy as np
+     8	import pandas as pd
+     9	
+    10	b = Path.cwd()
+    11	
+    12	gf = b / "data" / "processed" / "comparison" / "pfss_omni_ballistic_phase10_binned.csv"
+    13	bf = b / "data" / "processed" / "comparison" / "pfss_omni_ballistic_correlation_summary.csv"
+    14	pf = b / "data" / "processed" / "comparison" / "pfss_omni_phase_correlation_summary.csv"
+    15	ff = b / "data" / "processed" / "comparison" / "pfss_omni_fixed_lag_scan_correlations.csv"
+    16	mf = b / "metadata" / "rotation_manifest.csv"
+    17	
+    18	cd = b / "data" / "processed" / "comparison"
+    19	fd = b / "outputs" / "figures" / "comparison"
+    20	td = b / "outputs" / "tables"
+    21	
+    22	cd.mkdir(parents=True, exist_ok=True)
+    23	fd.mkdir(parents=True, exist_ok=True)
+    24	td.mkdir(parents=True, exist_ok=True)
+    25	
+    26	g = pd.read_csv(gf)
+    27	br = pd.read_csv(bf)
+    28	pr = pd.read_csv(pf)
+    29	fr = pd.read_csv(ff)
+    30	m = pd.read_csv(mf)
+    31	
+    32	if "null_test_status" not in m.columns:
+    33	    m["null_test_status"] = ""
+    34	
+    35	for c in ["null_test_status", "notes"]:
+    36	    if c not in m.columns:
+    37	        m[c] = ""
+    38	    m[c] = m[c].fillna("").astype(str)
+    39	
+    40	xs = [
+    41	    "pfss_equator_abs_mean",
+    42	    "pfss_midlat_abs_mean",
+    43	    "pfss_global_abs_mean",
+    44	]
+    45	
+    46	ys = [
+    47	    "speed_mean",
+    48	    "bmag_mean",
+    49	    "density_mean",
+    50	    "pdyn_mean",
+    51	    "ma_mean",
+    52	]
+    53	
+    54	mds = ["pearson", "spearman"]
+    55	
+    56	for c in ["cr", "ballistic_phase10_deg"]:
+    57	    if c not in g.columns:
+    58	        raise RuntimeError(f"Missing column in ballistic binned table: {c}")
+    59	
+    60	for c in xs + ys:
+    61	    if c not in g.columns:
+    62	        raise RuntimeError(f"Missing column in ballistic binned table: {c}")
+    63	
+    64	def ca(a, v, md):
+    65	    a = np.asarray(a, dtype=float)
+    66	    v = np.asarray(v, dtype=float)
+    67	
+    68	    ok = np.isfinite(a) & np.isfinite(v)
+    69	
+    70	    if ok.sum() < 3:
+    71	        return np.nan, int(ok.sum())
+    72	
+    73	    aa = a[ok]
+    74	    vv = v[ok]
+    75	
+    76	    if np.nanstd(aa) == 0 or np.nanstd(vv) == 0:
+    77	        return np.nan, int(ok.sum())
+    78	
+    79	    r = pd.Series(aa).corr(pd.Series(vv), method=md)
+    80	    return float(r), int(ok.sum())
+    81	
+    82	def grabr(d, x, y, md):
+    83	    q = d[
+    84	        (d["cr"].astype(str) == "all") &
+    85	        (d["x"] == x) &
+    86	        (d["y"] == y) &
+    87	        (d["method"] == md)
+    88	    ].copy()
+    89	
+    90	    if len(q) == 0:
+    91	        return np.nan, np.nan
+    92	
+    93	    return float(q.iloc[0]["r"]), int(q.iloc[0]["n"])
+    94	
+    95	rng = np.random.default_rng(57)
+    96	nrun = 2000
+    97	crs = sorted(g["cr"].dropna().astype(int).unique())
+    98	
+    99	nulls = []
+   100	srows = []
+   101	crows = []
+   102	
+   103	print(f"Project base: {b}")
+   104	print(f"Null runs per comparison: {nrun}")
+   105	print(f"CRs: {crs}")
+   106	print()
+   107	
+   108	for x in xs:
+   109	    for y in ys:
+   110	        for md in mds:
+   111	            ob, on = grabr(br, x, y, md)
+   112	            ph, pn = grabr(pr, x, y, md)
+   113	
+   114	            vals = []
+   115	
+   116	            for i in range(nrun):
+   117	                aa = []
+   118	                vv = []
+   119	
+   120	                for cr in crs:
+   121	                    q = g[g["cr"].astype(int) == cr].sort_values("ballistic_phase10_deg")
+   122	
+   123	                    a = q[x].to_numpy(dtype=float)
+   124	                    v = q[y].to_numpy(dtype=float)
+   125	
+   126	                    if len(a) == 0:
+   127	                        continue
+   128	
+   129	                    k = int(rng.integers(0, len(a)))
+   130	
+   131	                    aa.append(np.roll(a, k))
+   132	                    vv.append(v)
+   133	
+   134	                if len(aa) == 0:
+   135	                    rv = np.nan
+   136	                    nn = 0
+   137	                else:
+   138	                    rv, nn = ca(np.concatenate(aa), np.concatenate(vv), md)
+   139	
+   140	                vals.append(rv)
+   141	
+   142	                nulls.append({
+   143	                    "x": x,
+   144	                    "y": y,
+   145	                    "method": md,
+   146	                    "run": i,
+   147	                    "null_r": rv,
+   148	                    "n": nn,
+   149	                })
+   150	
+   151	            va = np.asarray(vals, dtype=float)
+   152	            va = va[np.isfinite(va)]
+   153	
+   154	            if np.isfinite(ob) and len(va) > 0:
+   155	                p2 = float((np.sum(np.abs(va) >= abs(ob)) + 1) / (len(va) + 1))
+   156	                pct = float(100.0 * np.sum(np.abs(va) < abs(ob)) / len(va))
+   157	                nm = float(np.mean(np.abs(va)))
+   158	                n95 = float(np.quantile(np.abs(va), 0.95))
+   159	            else:
+   160	                p2 = np.nan
+   161	                pct = np.nan
+   162	                nm = np.nan
+   163	                n95 = np.nan
+   164	
+   165	            srows.append({
+   166	                "x": x,
+   167	                "y": y,
+   168	                "method": md,
+   169	                "obs_r": ob,
+   170	                "obs_n": on,
+   171	                "null_runs": int(len(va)),
+   172	                "null_abs_mean": nm,
+   173	                "null_abs_p95": n95,
+   174	                "p_two_sided_abs": p2,
+   175	                "abs_percentile": pct,
+   176	            })
+   177	
+   178	            fq = fr[
+   179	                (fr["cr"].astype(str) == "all") &
+   180	                (fr["x"] == x) &
+   181	                (fr["y"] == y) &
+   182	                (fr["method"] == md) &
+   183	                (fr["r"].notna())
+   184	            ].copy()
+   185	
+   186	            if len(fq) > 0:
+   187	                fq["abs_r"] = fq["r"].abs()
+   188	                fb = fq.sort_values("abs_r", ascending=False).iloc[0]
+   189	                fbr = float(fb["r"])
+   190	                fbs = float(fb["scan_shift_deg"])
+   191	                fba = float(fb["abs_r"])
+   192	            else:
+   193	                fbr = np.nan
+   194	                fbs = np.nan
+   195	                fba = np.nan
+   196	
+   197	            crows.append({
+   198	                "x": x,
+   199	                "y": y,
+   200	                "method": md,
+   201	                "phase_r": ph,
+   202	                "ballistic_r": ob,
+   203	                "best_fixed_r": fbr,
+   204	                "best_fixed_shift_deg": fbs,
+   205	                "best_fixed_abs_r": fba,
+   206	                "ballistic_abs_minus_phase_abs": abs(ob) - abs(ph) if np.isfinite(ob) and np.isfinite(ph) else np.nan,
+   207	                "ballistic_abs_minus_best_fixed_abs": abs(ob) - fba if np.isfinite(ob) and np.isfinite(fba) else np.nan,
+   208	                "ballistic_null_p": p2,
+   209	                "ballistic_abs_percentile": pct,
+   210	            })
+   211	
+   212	nr = pd.DataFrame(nulls)
+   213	sr = pd.DataFrame(srows)
+   214	cr = pd.DataFrame(crows)
+   215	
+   216	npth = cd / "pfss_omni_ballistic_shift_null_runs.csv"
+   217	spth = cd / "pfss_omni_ballistic_shift_null_summary.csv"
+   218	cpth = td / "pfss_omni_ballistic_shift_null_summary_compact.csv"
+   219	cmp = cd / "pfss_omni_match_method_comparison.csv"
+   220	cmpt = td / "pfss_omni_match_method_comparison_compact.csv"
+   221	
+   222	nr.to_csv(npth, index=False)
+   223	sr.to_csv(spth, index=False)
+   224	sr.to_csv(cpth, index=False)
+   225	cr.to_csv(cmp, index=False)
+   226	cr.to_csv(cmpt, index=False)
+   227	
+   228	top = sr.copy()
+   229	top["abs_obs_r"] = top["obs_r"].abs()
+   230	top = top.sort_values("abs_obs_r", ascending=False)
+   231	
+   232	for _, row in top.head(5).iterrows():
+   233	    x = row["x"]
+   234	    y = row["y"]
+   235	    md = row["method"]
+   236	    ob = row["obs_r"]
+   237	
+   238	    q = nr[(nr["x"] == x) & (nr["y"] == y) & (nr["method"] == md)]["null_r"].dropna()
+   239	
+   240	    plt.figure(figsize=(7, 5))
+   241	    plt.hist(q, bins=40)
+   242	    plt.axvline(ob, linewidth=2)
+   243	    plt.axvline(-ob, linewidth=2)
+   244	    plt.xlabel("Null correlation r")
+   245	    plt.ylabel("Count")
+   246	    plt.title(f"{x} vs {y}, {md}")
+   247	    plt.tight_layout()
+   248	
+   249	    nm = f"null_{x}_vs_{y}_{md}.png"
+   250	    plt.savefig(fd / nm, dpi=200)
+   251	    plt.close()
+   252	
+   253	for c in sorted(g["cr"].dropna().astype(int).unique()):
+   254	    ms = m["cr"].astype(int) == c
+   255	    m.loc[ms, "null_test_status"] = "pass_ballistic_shift_null"
+   256	
+   257	    nt = "Ballistic match tested against random circular phase shifts."
+   258	    old = m.loc[ms, "notes"].iloc[0]
+   259	
+   260	    if nt not in old:
+   261	        m.loc[ms, "notes"] = old + " | " + nt
+   262	
+   263	m.to_csv(mf, index=False)
+   264	
+   265	print("Ballistic null-test summary:")
+   266	print(f"Null runs per comparison: {nrun}")
+   267	print(f"Total null rows: {len(nr)}")
+   268	print()
+   269	
+   270	print("Top ballistic correlations with null-test p values:")
+   271	print(top[[
+   272	    "x",
+   273	    "y",
+   274	    "method",
+   275	    "obs_r",
+   276	    "obs_n",
+   277	    "null_abs_mean",
+   278	    "null_abs_p95",
+   279	    "p_two_sided_abs",
+   280	    "abs_percentile",
+   281	]].head(15).to_string(index=False))
+   282	
+   283	print()
+   284	print("Method comparison summary:")
+   285	q = cr.copy()
+   286	q["ballistic_abs"] = q["ballistic_r"].abs()
+   287	q = q.sort_values("ballistic_abs", ascending=False).head(15)
+   288	print(q[[
+   289	    "x",
+   290	    "y",
+   291	    "method",
+   292	    "phase_r",
+   293	    "ballistic_r",
+   294	    "best_fixed_r",
+   295	    "best_fixed_shift_deg",
+   296	    "ballistic_abs_minus_phase_abs",
+   297	    "ballistic_abs_minus_best_fixed_abs",
+   298	    "ballistic_null_p",
+   299	]].to_string(index=False))
+   300	
+   301	print()
+   302	print(f"Saved null runs: {npth}")
+   303	print(f"Saved null summary: {spth}")
+   304	print(f"Saved compact null summary: {cpth}")
+   305	print(f"Saved method comparison: {cmp}")
+   306	print(f"Saved compact method comparison: {cmpt}")
+   307	print(f"Saved figures: {fd}")
+   308	
+   309	print()
+   310	print("Manifest null-test status:")
+   311	print(m[["cr", "ballistic_match_status", "lag_scan_status", "null_test_status"]].to_string(index=False))
+   312	
+   313	print()
+   314	print("Status: pass")
+
+===== scripts/20_make_result_summary.py =====
+     1	from pathlib import Path
+     2	import pandas as pd
+     3	import numpy as np
+     4	
+     5	b = Path.cwd()
+     6	
+     7	cd = b / "data" / "processed" / "comparison"
+     8	td = b / "outputs" / "tables"
+     9	rd = b / "outputs" / "results"
+    10	
+    11	rd.mkdir(parents=True, exist_ok=True)
+    12	td.mkdir(parents=True, exist_ok=True)
+    13	
+    14	ph = pd.read_csv(cd / "pfss_omni_phase_correlation_summary.csv")
+    15	ba = pd.read_csv(cd / "pfss_omni_ballistic_correlation_summary.csv")
+    16	fx = pd.read_csv(cd / "pfss_omni_fixed_lag_scan_correlations.csv")
+    17	nu = pd.read_csv(cd / "pfss_omni_ballistic_shift_null_summary.csv")
+    18	lg = pd.read_csv(cd / "pfss_omni_ballistic_lag_summary.csv")
+    19	
+    20	def one(d, x, y, m):
+    21	    q = d[
+    22	        (d["cr"].astype(str) == "all") &
+    23	        (d["x"] == x) &
+    24	        (d["y"] == y) &
+    25	        (d["method"] == m)
+    26	    ].copy()
+    27	
+    28	    if len(q) == 0:
+    29	        return np.nan
+    30	
+    31	    return float(q.iloc[0]["r"])
+    32	
+    33	def bestfx(x, y, m):
+    34	    q = fx[
+    35	        (fx["cr"].astype(str) == "all") &
+    36	        (fx["x"] == x) &
+    37	        (fx["y"] == y) &
+    38	        (fx["method"] == m) &
+    39	        (fx["r"].notna())
+    40	    ].copy()
+    41	
+    42	    if len(q) == 0:
+    43	        return np.nan, np.nan
+    44	
+    45	    q["ar"] = q["r"].abs()
+    46	    z = q.sort_values("ar", ascending=False).iloc[0]
+    47	    return float(z["r"]), float(z["scan_shift_deg"])
+    48	
+    49	rows = []
+    50	
+    51	for _, r in nu.iterrows():
+    52	    x = r["x"]
+    53	    y = r["y"]
+    54	    m = r["method"]
+    55	
+    56	    fr, sh = bestfx(x, y, m)
+    57	
+    58	    rows.append({
+    59	        "pfss_proxy": x,
+    60	        "omni_var": y,
+    61	        "method": m,
+    62	        "phase_r": one(ph, x, y, m),
+    63	        "ballistic_r": one(ba, x, y, m),
+    64	        "best_fixed_r": fr,
+    65	        "best_fixed_shift_deg": sh,
+    66	        "null_p": float(r["p_two_sided_abs"]),
+    67	        "null_percentile": float(r["abs_percentile"]),
+    68	        "null_abs_p95": float(r["null_abs_p95"]),
+    69	    })
+    70	
+    71	s = pd.DataFrame(rows)
+    72	
+    73	s["abs_ballistic_r"] = s["ballistic_r"].abs()
+    74	s["ballistic_minus_phase_abs"] = s["ballistic_r"].abs() - s["phase_r"].abs()
+    75	s["ballistic_minus_best_fixed_abs"] = s["ballistic_r"].abs() - s["best_fixed_r"].abs()
+    76	
+    77	s = s.sort_values(["null_p", "abs_ballistic_r"], ascending=[True, False])
+    78	
+    79	op = td / "final_pfss_omni_result_summary.csv"
+    80	s.to_csv(op, index=False)
+    81	
+    82	top = s.iloc[0]
+    83	
+    84	txt = []
+    85	txt.append("PFSS to OMNI diagnostic result summary")
+    86	txt.append("")
+    87	txt.append("Main result:")
+    88	txt.append(
+    89	    f"The strongest tested relationship was {top['pfss_proxy']} versus {top['omni_var']} "
+    90	    f"using {top['method']} correlation after ballistic alignment."
+    91	)
+    92	txt.append(
+    93	    f"The ballistic correlation was r = {top['ballistic_r']:.6f}, compared with "
+    94	    f"the unshifted phase-only value r = {top['phase_r']:.6f}."
+    95	)
+    96	txt.append(
+    97	    f"The random circular-shift null test gave p = {top['null_p']:.6f}, "
+    98	    f"placing the ballistic result at the {top['null_percentile']:.2f} percentile of null-shift outcomes."
+    99	)
+   100	txt.append("")
+   101	txt.append("Physical reading:")
+   102	txt.append(
+   103	    "The result supports a weak but non-random association between the PFSS unsigned "
+   104	    "source-surface magnetic-field proxy and the near-Earth OMNI magnetic-field magnitude "
+   105	    "after a speed-dependent ballistic travel-time correction."
+   106	)
+   107	txt.append("")
+   108	txt.append("Limits:")
+   109	txt.append(
+   110	    "This is a diagnostic proxy result, not a direct field-line tracing result. "
+   111	    "The mapping uses a source-surface longitude proxy, OMNI phase, and ballistic lag. "
+   112	    "The result should be presented as evidence that the proxy retains detectable solar-wind structure, "
+   113	    "not as proof of one-to-one magnetic connectivity."
+   114	)
+   115	txt.append("")
+   116	txt.append("Ballistic lag range:")
+   117	txt.append(
+   118	    f"Across selected Carrington rotations, mean ballistic lag ranged from "
+   119	    f"{lg['lag_mean_days'].min():.3f} to {lg['lag_mean_days'].max():.3f} days."
+   120	)
+   121	txt.append(
+   122	    f"Mean longitude shift ranged from {lg['shift_mean_deg'].min():.3f}° "
+   123	    f"to {lg['shift_mean_deg'].max():.3f}°."
+   124	)
+   125	txt.append("")
+   126	txt.append("Top rows:")
+   127	txt.append(s.head(8).to_string(index=False))
+   128	
+   129	tp = rd / "pfss_omni_result_summary.txt"
+   130	tp.write_text("\n".join(txt))
+   131	
+   132	print("Final result summary:")
+   133	print(s.head(12).to_string(index=False))
+   134	print()
+   135	print(f"Saved table: {op}")
+   136	print(f"Saved text summary: {tp}")
+   137	print()
+   138	print("Status: pass")
+
+===== scripts/21_postersheet.py =====
+     1	from pathlib import Path
+     2	import math
+     3	import matplotlib.pyplot as plt
+     4	import matplotlib.image as mpimg
+     5	
+     6	root = Path("outputs/poster_figures")
+     7	out = root / "poster_figure_contact_sheet.png"
+     8	
+     9	items = [
+    10	    ("Main scatter: PFSS eq abs Br vs OMNI |B|", root / "fig_main_scatter_ballistic_eqabs_bmag.png"),
+    11	    ("Null test: circular phase shifts", root / "fig_null_test_eqabs_bmag.png"),
+    12	    ("Ballistic lag by CR", root / "fig_ballistic_lag_by_cr.png"),
+    13	    ("PFSS proxy by phase and CR", root / "fig_pfss_eqabs_phase_by_cr.png"),
+    14	    ("OMNI |B| by phase and CR", root / "fig_omni_bmag_phase_by_cr.png"),
+    15	]
+    16	
+    17	pics = [(lab, path, mpimg.imread(path)) for lab, path in items if path.exists()]
+    18	
+    19	cols = 2
+    20	rows = math.ceil(len(pics) / cols)
+    21	
+    22	fig, axs = plt.subplots(rows, cols, figsize=(14, 4.8 * rows))
+    23	axs = axs.ravel() if hasattr(axs, "ravel") else [axs]
+    24	
+    25	for ax, (lab, path, img) in zip(axs, pics):
+    26	    ax.imshow(img)
+    27	    ax.set_title(lab, fontsize=12)
+    28	    ax.axis("off")
+    29	
+    30	for ax in axs[len(pics):]:
+    31	    ax.axis("off")
+    32	
+    33	fig.tight_layout()
+    34	fig.savefig(out, dpi=200)
+    35	print(f"saved {out}")
+

@@ -1,0 +1,42 @@
+Final science sample locked
+Included CRs: [2281, 2283, 2284, 2286, 2290]
+Debug-only CRs excluded from final science metrics: [2287]
+
+Target relation: pfss_equator_abs_mean vs bmag_mean, Spearman
+
+                sample  rss        r   n  null_p_two_sided_abs  null_abs_percentile  null_abs_p95
+ambient_without_cr2284  2.0 0.310749 144              0.004498                99.60      0.212630
+ambient_without_cr2284  2.5 0.313508 144              0.006997                99.35      0.237075
+ambient_without_cr2284  3.0 0.251493 144              0.032984                96.75      0.235742
+     final_with_cr2284  2.0 0.280349 180              0.005497                99.50      0.194275
+     final_with_cr2284  2.5 0.298558 180              0.001999                99.85      0.202897
+     final_with_cr2284  3.0 0.252821 180              0.012994                98.75      0.203351
+
+Leave-one-rotation-out target relation
+
+ dropped_cr  rss        r   n    abs_r  is_best_abs_r_for_dropout
+       2281  2.0 0.265071 144 0.265071                      False
+       2281  2.5 0.311398 144 0.311398                       True
+       2281  3.0 0.269926 144 0.269926                      False
+       2283  2.0 0.265242 144 0.265242                      False
+       2283  2.5 0.307978 144 0.307978                       True
+       2283  3.0 0.279395 144 0.279395                      False
+       2284  2.0 0.310749 144 0.310749                      False
+       2284  2.5 0.313508 144 0.313508                       True
+       2284  3.0 0.251493 144 0.251493                      False
+       2286  2.0 0.230591 144 0.230591                      False
+       2286  2.5 0.252568 144 0.252568                       True
+       2286  3.0 0.234979 144 0.234979                      False
+       2290  2.0 0.332616 144 0.332616                       True
+       2290  2.5 0.309172 144 0.309172                      False
+       2290  3.0 0.229061 144 0.229061                      False
+
+RTN IMF polarity agreement
+
+           sample  rss pfss_polarity_proxy omni_polarity  bins  direct_agreement_fraction  direct_agreement_count  inverted_agreement_fraction  inverted_agreement_count  best_agreement_fraction best_orientation
+final_with_cr2284  2.0   equator_signed_br   RTN Br sign   180                   0.488889                      88                     0.511111                        92                 0.511111         inverted
+final_with_cr2284  2.0    global_signed_br   RTN Br sign   180                   0.505556                      91                     0.494444                        89                 0.505556           direct
+final_with_cr2284  2.5   equator_signed_br   RTN Br sign   180                   0.461111                      83                     0.538889                        97                 0.538889         inverted
+final_with_cr2284  2.5    global_signed_br   RTN Br sign   180                   0.488889                      88                     0.511111                        92                 0.511111         inverted
+final_with_cr2284  3.0   equator_signed_br   RTN Br sign   180                   0.477778                      86                     0.522222                        94                 0.522222         inverted
+final_with_cr2284  3.0    global_signed_br   RTN Br sign   180                   0.466667                      84                     0.533333                        96                 0.533333         inverted

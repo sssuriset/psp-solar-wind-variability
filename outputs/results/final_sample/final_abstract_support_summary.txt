@@ -1,0 +1,17 @@
+Final abstract-support summary
+
+Final science sample: CR 2281, 2283, 2284, 2286, 2290
+Excluded debug-only rotation: CR 2287
+Disturbed/stress-test rotation: CR 2284
+
+Target relation: pfss_equator_abs_mean vs bmag_mean
+Method: Spearman correlation on 10-degree ballistic longitude bins
+
+  analysis_scope        final_science_crs excluded_debug_crs disturbed_stress_test_cr  source_surface_height_rss                    target_relation correlation_method  final_sample_bins_n  final_sample_spearman_r  final_sample_shift_null_p_abs_two_sided  final_sample_null_abs_percentile  ambient_without_cr2284_bins_n  ambient_without_cr2284_spearman_r  ambient_without_cr2284_shift_null_p_abs_two_sided  ambient_without_cr2284_null_abs_percentile  leave_one_rotation_out_best_count  leave_one_rotation_out_total              leave_one_rotation_out_note  is_full_sample_best_abs_r  is_ambient_best_abs_r
+abstract_support 2281 2283 2284 2286 2290               2287                     2284                        2.0 pfss_equator_abs_mean vs bmag_mean           spearman                  180                 0.280349                                 0.005497                             99.50                            144                           0.310749                                           0.004498                                       99.60                                  1                             5 best in this many dropout tests by abs_r                      False                  False
+abstract_support 2281 2283 2284 2286 2290               2287                     2284                        2.5 pfss_equator_abs_mean vs bmag_mean           spearman                  180                 0.298558                                 0.001999                             99.85                            144                           0.313508                                           0.006997                                       99.35                                  4                             5 best in this many dropout tests by abs_r                       True                   True
+abstract_support 2281 2283 2284 2286 2290               2287                     2284                        3.0 pfss_equator_abs_mean vs bmag_mean           spearman                  180                 0.252821                                 0.012994                             98.75                            144                           0.251493                                           0.032984                                       96.75                                  0                             5 best in this many dropout tests by abs_r                      False                  False
+
+Headline-compatible claim: rss = 2.5 gives the strongest full-sample association (r = 0.298558, n = 180, shift-null p = 0.001999).
+Validation note: rss = 2.5 is strongest in four of five leave-one-rotation-out tests; rss = 2.0 is strongest when CR 2290 is removed.
+Ambient comparison note: removing CR 2284 does not remove the association.

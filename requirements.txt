@@ -1,5 +1,12 @@
 numpy
 pandas
 matplotlib
+scipy
+astropy
+sunpy
+pfsspy
+drms
+astroquery
 cdasws
-spacepy
+requests
+tqdm

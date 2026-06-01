@@ -1,0 +1,7 @@
+sample,rss,pfss_polarity_proxy,omni_polarity,bins,direct_agreement_fraction,direct_agreement_count,inverted_agreement_fraction,inverted_agreement_count,best_agreement_fraction,best_orientation
+final_with_cr2284,2.0,equator_signed_br,RTN Br sign,180,0.4888888888888889,88,0.5111111111111111,92,0.5111111111111111,inverted
+final_with_cr2284,2.0,global_signed_br,RTN Br sign,180,0.5055555555555555,91,0.49444444444444446,89,0.5055555555555555,direct
+final_with_cr2284,2.5,equator_signed_br,RTN Br sign,180,0.46111111111111114,83,0.5388888888888889,97,0.5388888888888889,inverted
+final_with_cr2284,2.5,global_signed_br,RTN Br sign,180,0.4888888888888889,88,0.5111111111111111,92,0.5111111111111111,inverted
+final_with_cr2284,3.0,equator_signed_br,RTN Br sign,180,0.4777777777777778,86,0.5222222222222223,94,0.5222222222222223,inverted
+final_with_cr2284,3.0,global_signed_br,RTN Br sign,180,0.4666666666666667,84,0.5333333333333333,96,0.5333333333333333,inverted

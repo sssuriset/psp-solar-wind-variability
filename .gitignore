@@ -1,36 +1,17 @@
+.DS_Store
 __pycache__/
 *.pyc
-.DS_Store
-
-# raw and processed science data are too large for GitHub
-data/raw/
-data/processed/
-*.fits
-*.fts
-*.fits.gz
-
-# old nested project archive
-test_archive/
-
-# logs and cache
-*.log
 .ipynb_checkpoints/
-.cache/
 
-# keep lightweight metadata if present
-!data/
-data/*
-!data/metadata/
-!data/metadata/*.csv
+data/raw/
+data/interim/
+data/processed/
 
-# keep selected result summaries, tables, and poster figures
 outputs/*
+!outputs/
 !outputs/results/
-!outputs/results/*.txt
+!outputs/results/final_sample/
+!outputs/results/final_sample/*.txt
 !outputs/tables/
-!outputs/tables/*.csv
-!outputs/poster_figures/
-!outputs/poster_figures/*.png
-!outputs/poster_figures/*.pdf
-
-.gitignore.backup
+!outputs/tables/final_sample/
+!outputs/tables/final_sample/*.csv

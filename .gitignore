@@ -10,8 +10,8 @@ data/processed/
 outputs/*
 !outputs/
 !outputs/results/
-!outputs/results/final_sample/
-!outputs/results/final_sample/*.txt
+!outputs/results/final/
+!outputs/results/final/*.txt
 !outputs/tables/
-!outputs/tables/final_sample/
-!outputs/tables/final_sample/*.csv
+!outputs/tables/final/
+!outputs/tables/final/*.csv

@@ -15,9 +15,9 @@ HEIGHTS = {
     3.0: BASE / "data" / "processed" / "comparison" / "rss3.0" / "pfss_omni_ballistic_matched_rows.csv",
 }
 
-OUT_TABLE = BASE / "outputs" / "tables" / "final_sample"
-OUT_RESULT = BASE / "outputs" / "results" / "final_sample"
-OUT_DATA = BASE / "data" / "processed" / "comparison" / "final_sample"
+OUT_TABLE = BASE / "outputs" / "tables" / "final"
+OUT_RESULT = BASE / "outputs" / "results" / "final"
+OUT_DATA = BASE / "data" / "processed" / "comparison" / "final"
 
 OUT_TABLE.mkdir(parents=True, exist_ok=True)
 OUT_RESULT.mkdir(parents=True, exist_ok=True)
@@ -42,7 +42,7 @@ TARGET_Y = "bmag_mean"
 TARGET_METHOD = "spearman"
 
 
-def corr_value(df, x, y, method):
+def corr(df, x, y, method):
     q = df[[x, y]].replace([np.inf, -np.inf], np.nan).dropna()
     if len(q) < 3:
         return np.nan, int(len(q))
@@ -51,7 +51,7 @@ def corr_value(df, x, y, method):
     return float(q[x].corr(q[y], method=method)), int(len(q))
 
 
-def build_binned(matched):
+def bin10(matched):
     g = matched.groupby(["cr", "ballistic_phase10_deg"], as_index=False).agg(
         n=("time", "size"),
         speed_mean=("speed_km_s", "mean"),
@@ -75,13 +75,13 @@ def build_binned(matched):
     return g
 
 
-def correlation_table(g, rss, sample_name):
+def corrtab(g, rss, sample_name):
     rows = []
 
     for x in XS:
         for y in YS:
             for method in ["pearson", "spearman"]:
-                r, n = corr_value(g, x, y, method)
+                r, n = corr(g, x, y, method)
                 rows.append({
                     "sample": sample_name,
                     "rss": rss,
@@ -99,7 +99,7 @@ def correlation_table(g, rss, sample_name):
         for x in XS:
             for y in YS:
                 for method in ["pearson", "spearman"]:
-                    r, n = corr_value(q, x, y, method)
+                    r, n = corr(q, x, y, method)
                     rows.append({
                         "sample": sample_name,
                         "rss": rss,
@@ -115,8 +115,8 @@ def correlation_table(g, rss, sample_name):
     return pd.DataFrame(rows)
 
 
-def circular_shift_null(g, x, y, method, n_iter=2000, seed=57):
-    obs, n = corr_value(g, x, y, method)
+def shiftnull(g, x, y, method, n_iter=2000, seed=57):
+    obs, n = corr(g, x, y, method)
     if not np.isfinite(obs):
         return np.nan, np.nan, np.nan, obs, n
 
@@ -135,7 +135,7 @@ def circular_shift_null(g, x, y, method, n_iter=2000, seed=57):
                 qq[x] = np.roll(vals, shift)
             parts.append(qq)
         shifted = pd.concat(parts, ignore_index=True)
-        rr, _ = corr_value(shifted, x, y, method)
+        rr, _ = corr(shifted, x, y, method)
         if np.isfinite(rr):
             nulls.append(rr)
 
@@ -149,12 +149,12 @@ def circular_shift_null(g, x, y, method, n_iter=2000, seed=57):
     return float(p), float(percentile), p95, obs, n
 
 
-def add_nulls(corr_df, g, rss, sample_name):
+def addnull(corr_df, g, rss, sample_name):
     rows = []
     q = corr_df[(corr_df["sample"] == sample_name) & (corr_df["rss"] == rss) & (corr_df["cr"].astype(str) == "all")].copy()
 
     for _, row in q.iterrows():
-        p, pct, p95, obs, n = circular_shift_null(
+        p, pct, p95, obs, n = shiftnull(
             g,
             row["x"],
             row["y"],
@@ -171,9 +171,9 @@ def add_nulls(corr_df, g, rss, sample_name):
     return pd.DataFrame(rows)
 
 
-def sample_metrics(rss, matched_all, crs, sample_name):
+def runsample(rss, matched_all, crs, sample_name):
     matched = matched_all[matched_all["cr"].astype(int).isin(crs)].copy()
-    g = build_binned(matched)
+    g = bin10(matched)
 
     sample_dir = OUT_DATA / f"rss{rss:.1f}" / sample_name
     sample_dir.mkdir(parents=True, exist_ok=True)
@@ -181,8 +181,8 @@ def sample_metrics(rss, matched_all, crs, sample_name):
     matched.to_csv(sample_dir / "pfss_omni_ballistic_matched_rows.csv", index=False)
     g.to_csv(sample_dir / "pfss_omni_ballistic_phase10_binned.csv", index=False)
 
-    corr = correlation_table(g, rss, sample_name)
-    null = add_nulls(corr, g, rss, sample_name)
+    corr = corrtab(g, rss, sample_name)
+    null = addnull(corr, g, rss, sample_name)
 
     return matched, g, corr, null
 
@@ -202,8 +202,8 @@ for rss, path in HEIGHTS.items():
     present = sorted(d["cr"].dropna().astype(int).unique().tolist())
     print(f"rss={rss}: input CRs = {present}")
 
-    final_matched, final_binned, corr, null = sample_metrics(rss, d, FINAL_CRS, "final_with_cr2284")
-    ambient_matched, ambient_binned, corr_amb, null_amb = sample_metrics(rss, d, AMBIENT_CRS, "ambient_without_cr2284")
+    final_matched, final_binned, corr, null = runsample(rss, d, FINAL_CRS, "with2284")
+    ambient_matched, ambient_binned, corr_amb, null_amb = runsample(rss, d, AMBIENT_CRS, "ambient_no2284")
 
     all_corr.extend([corr, corr_amb])
     all_null.extend([null, null_amb])
@@ -244,7 +244,7 @@ for rss, path in HEIGHTS.items():
         n = int(len(q))
 
         all_polarity.append({
-            "sample": "final_with_cr2284",
+            "sample": "with2284",
             "rss": rss,
             "pfss_polarity_proxy": label,
             "omni_polarity": "RTN Br sign",
@@ -262,10 +262,10 @@ null_all = pd.concat(all_null, ignore_index=True)
 lag_all = pd.concat(all_lag, ignore_index=True)
 polarity_all = pd.DataFrame(all_polarity)
 
-corr_all.to_csv(OUT_TABLE / "final_sample_all_correlations.csv", index=False)
-null_all.to_csv(OUT_TABLE / "final_sample_all_correlations_with_null.csv", index=False)
-lag_all.to_csv(OUT_TABLE / "final_sample_ballistic_lag_summary.csv", index=False)
-polarity_all.to_csv(OUT_TABLE / "final_sample_rtn_imf_polarity_agreement.csv", index=False)
+corr_all.to_csv(OUT_TABLE / "allcorr.csv", index=False)
+null_all.to_csv(OUT_TABLE / "corr.csv", index=False)
+lag_all.to_csv(OUT_TABLE / "lag.csv", index=False)
+polarity_all.to_csv(OUT_TABLE / "pol.csv", index=False)
 
 target = null_all[
     (null_all["x"] == TARGET_X)
@@ -274,7 +274,7 @@ target = null_all[
 ].copy()
 
 target = target.sort_values(["sample", "rss"])
-target.to_csv(OUT_TABLE / "final_sample_height_sensitivity_eqabs_bmag_spearman.csv", index=False)
+target.to_csv(OUT_TABLE / "height.csv", index=False)
 
 # Leave-one-rotation-out for target relation.
 loo_rows = []
@@ -284,8 +284,8 @@ for drop_cr in FINAL_CRS:
         d = pd.read_csv(path)
         d["cr"] = pd.to_numeric(d["cr"], errors="coerce").astype(int)
         matched = d[d["cr"].isin(keep)].copy()
-        g = build_binned(matched)
-        r, n = corr_value(g, TARGET_X, TARGET_Y, TARGET_METHOD)
+        g = bin10(matched)
+        r, n = corr(g, TARGET_X, TARGET_Y, TARGET_METHOD)
         loo_rows.append({
             "dropped_cr": drop_cr,
             "kept_crs": " ".join(str(x) for x in keep),
@@ -304,14 +304,14 @@ for drop_cr, q in loo.groupby("dropped_cr"):
     idx = q["abs_r"].idxmax()
     loo.loc[idx, "is_best_abs_r_for_dropout"] = True
 
-loo.to_csv(OUT_TABLE / "leave_one_rotation_out_eqabs_bmag_spearman.csv", index=False)
+loo.to_csv(OUT_TABLE / "loo.csv", index=False)
 
-headline = target[target["sample"] == "final_with_cr2284"].sort_values(
+headline = target[target["sample"] == "with2284"].sort_values(
     ["null_p_two_sided_abs", "abs_r"],
     ascending=[True, False],
 ).copy()
 
-ambient_compare = target[target["sample"].isin(["final_with_cr2284", "ambient_without_cr2284"])].copy()
+ambient_compare = target[target["sample"].isin(["with2284", "ambient_no2284"])].copy()
 
 summary_lines = []
 summary_lines.append("Final science sample locked")
@@ -345,7 +345,7 @@ summary_lines.append("RTN IMF polarity agreement")
 summary_lines.append("")
 summary_lines.append(polarity_all.to_string(index=False))
 
-(OUT_RESULT / "final_sample_summary.txt").write_text("\n".join(summary_lines))
+(OUT_RESULT / "summary.txt").write_text("\n".join(summary_lines))
 
 print("")
 print("Final sample target relation:")
@@ -372,11 +372,11 @@ print(loo[[
 
 print("")
 print("Saved:")
-print(OUT_TABLE / "final_sample_height_sensitivity_eqabs_bmag_spearman.csv")
-print(OUT_TABLE / "leave_one_rotation_out_eqabs_bmag_spearman.csv")
-print(OUT_TABLE / "final_sample_all_correlations_with_null.csv")
-print(OUT_TABLE / "final_sample_ballistic_lag_summary.csv")
-print(OUT_TABLE / "final_sample_rtn_imf_polarity_agreement.csv")
-print(OUT_RESULT / "final_sample_summary.txt")
+print(OUT_TABLE / "height.csv")
+print(OUT_TABLE / "loo.csv")
+print(OUT_TABLE / "corr.csv")
+print(OUT_TABLE / "lag.csv")
+print(OUT_TABLE / "pol.csv")
+print(OUT_RESULT / "summary.txt")
 print("")
 print("Status: pass")

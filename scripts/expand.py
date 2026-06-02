@@ -13,7 +13,7 @@ b = Path.cwd()
 heights = [2.0, 2.5, 3.0]
 
 outtab = b / "outputs" / "tables"
-outfig = b / "outputs" / "poster_figures"
+outfig = b / "outputs" / "figures" / "diag"
 outres = b / "outputs" / "results"
 
 outtab.mkdir(parents=True, exist_ok=True)
@@ -168,7 +168,7 @@ def find_hmi_fits(cr):
 
     raise RuntimeError(f"Could not find usable HMI magnetogram FITS for CR {cr}")
 
-def corr_value(x, y, method):
+def corr(x, y, method):
     q = pd.DataFrame({"x": x, "y": y}).replace([np.inf, -np.inf], np.nan).dropna()
     if len(q) < 3:
         return np.nan, len(q)
@@ -337,7 +337,7 @@ for rss in heights:
     for x in xcols:
         for y in ycols:
             for method in ["spearman", "pearson"]:
-                r, n = corr_value(q[x], q[y], method)
+                r, n = corr(q[x], q[y], method)
                 corr_rows.append({
                     "rss": rss,
                     "cr": "all",
@@ -354,7 +354,7 @@ for rss in heights:
         for x in xcols:
             for y in ["speed_mean", "bmag_mean"]:
                 for method in ["spearman"]:
-                    r, n = corr_value(qc[x], qc[y], method)
+                    r, n = corr(qc[x], qc[y], method)
                     corr_rows.append({
                         "rss": rss,
                         "cr": cr,

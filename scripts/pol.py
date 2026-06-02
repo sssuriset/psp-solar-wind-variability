@@ -7,21 +7,21 @@ b = Path.cwd()
 
 heights = ["rss2.0", "rss2.5", "rss3.0"]
 out = b / "outputs" / "tables"
-figout = b / "outputs" / "poster_figures"
+figout = b / "outputs" / "figures" / "diag"
 out.mkdir(parents=True, exist_ok=True)
 figout.mkdir(parents=True, exist_ok=True)
 
 rows = []
 detail_rows = []
 
-def sign_nonzero(x):
+def sgn(x):
     x = np.asarray(x, dtype=float)
     y = np.sign(x)
     y[~np.isfinite(x)] = np.nan
     y[y == 0] = np.nan
     return y
 
-def normal_binom_p(k, n):
+def binomp(k, n):
     if n <= 0:
         return np.nan
     z = abs(k - 0.5 * n) / math.sqrt(0.25 * n)
@@ -82,9 +82,9 @@ for h in heights:
         pfss_global_signed_mean=("global_signed_br", "mean"),
     )
 
-    g["omni_rtn_radial_polarity"] = sign_nonzero(g["br_rtn_mean"])
-    g["pfss_equator_polarity"] = sign_nonzero(g["pfss_equator_signed_mean"])
-    g["pfss_global_polarity"] = sign_nonzero(g["pfss_global_signed_mean"])
+    g["omni_rtn_radial_polarity"] = sgn(g["br_rtn_mean"])
+    g["pfss_equator_polarity"] = sgn(g["pfss_equator_signed_mean"])
+    g["pfss_global_polarity"] = sgn(g["pfss_global_signed_mean"])
 
     for proxy_col, label in [
         ("pfss_equator_polarity", "equator_signed_br"),
@@ -106,10 +106,10 @@ for h in heights:
             "bins": n,
             "direct_agreement_fraction": direct_n / n if n else np.nan,
             "direct_agreement_count": direct_n,
-            "direct_binomial_p_approx": normal_binom_p(direct_n, n),
+            "direct_binomial_p_approx": binomp(direct_n, n),
             "inverted_agreement_fraction": inverted_n / n if n else np.nan,
             "inverted_agreement_count": inverted_n,
-            "inverted_binomial_p_approx": normal_binom_p(inverted_n, n),
+            "inverted_binomial_p_approx": binomp(inverted_n, n),
             "best_agreement_fraction": max(direct_n, inverted_n) / n if n else np.nan,
             "best_orientation": "direct" if direct_n >= inverted_n else "inverted",
         })

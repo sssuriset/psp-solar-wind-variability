@@ -10,7 +10,7 @@ b = Path.cwd()
 heights = [2.0, 2.5, 3.0]
 
 outtab = b / "outputs" / "tables"
-outfig = b / "outputs" / "poster_figures"
+outfig = b / "outputs" / "figures" / "diag"
 outres = b / "outputs" / "results"
 
 outtab.mkdir(parents=True, exist_ok=True)

@@ -41,12 +41,28 @@ for RSS in $HEIGHTS; do
 done
 
 # 8. Cross-height secondary analyses
-python 11_earth_track.py
-python 12_hss_timing.py
-python 13_polarity_agreement.py
-python 14_expansion_proxy.py
+python 12_earth_track.py
+python 13_hss_timing.py
+python 14_polarity_agreement.py
+python 15_expansion_proxy.py
 
-# 9. Locked final sample and headline tables -> outputs/tables/final/, outputs/results/final/
-python 15_final_results.py
+# 9. ICME robustness check (requires the ICME interval catalog; see README)
+ICME_CATALOG="../data/external/wind_icme_intervals_2024.csv"
+if [ -f "$ICME_CATALOG" ]; then
+    python 11_flag_icme.py
+    RUN_ICME=1
+else
+    echo "ICME catalog not found at data/external/; skipping ICME-filtered results."
+    RUN_ICME=0
+fi
+
+# 10. Locked final sample and headline tables -> outputs/tables/final/, outputs/results/final/
+python 16_final_results.py
+
+# 11. ICME-filtered final results and row-level sensitivity
+if [ "$RUN_ICME" = "1" ]; then
+    python 16_final_results.py --icme-filter
+    python 17_icme_row_sensitivity.py
+fi
 
 echo "Pipeline complete. See outputs/results/final/summary.txt"

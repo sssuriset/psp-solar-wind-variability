@@ -5,19 +5,45 @@ import pandas as pd
 
 BASE = Path(__file__).resolve().parents[1]
 
+import argparse
+
+ap = argparse.ArgumentParser()
+ap.add_argument(
+    "--icme-filter",
+    action="store_true",
+    help="Read ICME-flagged matched rows (from 11_flag_icme.py) and drop in-ICME hours",
+)
+args = ap.parse_args()
+ICME_FILTER = args.icme_filter
+
+ROWFILE = (
+    "pfss_omni_ballistic_matched_rows_icme_flagged.csv"
+    if ICME_FILTER
+    else "pfss_omni_ballistic_matched_rows.csv"
+)
+SUBDIR = "final_no_icme" if ICME_FILTER else "final"
+
 FINAL_CRS = [2281, 2283, 2284, 2286, 2290]
 AMBIENT_CRS = [2281, 2283, 2286, 2290]
 DEBUG_ONLY_CRS = [2287]
 
 HEIGHTS = {
-    2.0: BASE / "data" / "processed" / "comparison" / "rss2.0" / "pfss_omni_ballistic_matched_rows.csv",
-    2.5: BASE / "data" / "processed" / "comparison" / "rss2.5" / "pfss_omni_ballistic_matched_rows.csv",
-    3.0: BASE / "data" / "processed" / "comparison" / "rss3.0" / "pfss_omni_ballistic_matched_rows.csv",
+    2.0: BASE / "data" / "processed" / "comparison" / "rss2.0" / ROWFILE,
+    2.5: BASE / "data" / "processed" / "comparison" / "rss2.5" / ROWFILE,
+    3.0: BASE / "data" / "processed" / "comparison" / "rss3.0" / ROWFILE,
 }
 
-OUT_TABLE = BASE / "outputs" / "tables" / "final"
-OUT_RESULT = BASE / "outputs" / "results" / "final"
-OUT_DATA = BASE / "data" / "processed" / "comparison" / "final"
+OUT_TABLE = BASE / "outputs" / "tables" / SUBDIR
+OUT_RESULT = BASE / "outputs" / "results" / SUBDIR
+OUT_DATA = BASE / "data" / "processed" / "comparison" / SUBDIR
+
+
+def drop_icme(d):
+    if not ICME_FILTER:
+        return d
+    if "icme_flag" not in d.columns:
+        raise ValueError("Expected icme_flag column; run 11_flag_icme.py first")
+    return d[~d["icme_flag"].astype(str).str.lower().isin(["true", "1"])].copy()
 
 OUT_TABLE.mkdir(parents=True, exist_ok=True)
 OUT_RESULT.mkdir(parents=True, exist_ok=True)
@@ -198,6 +224,7 @@ for rss, path in HEIGHTS.items():
 
     d = pd.read_csv(path)
     d["cr"] = pd.to_numeric(d["cr"], errors="coerce").astype(int)
+    d = drop_icme(d)
 
     present = sorted(d["cr"].dropna().astype(int).unique().tolist())
     print(f"rss={rss}: input CRs = {present}")
@@ -283,6 +310,7 @@ for drop_cr in FINAL_CRS:
     for rss, path in HEIGHTS.items():
         d = pd.read_csv(path)
         d["cr"] = pd.to_numeric(d["cr"], errors="coerce").astype(int)
+        d = drop_icme(d)
         matched = d[d["cr"].isin(keep)].copy()
         g = bin10(matched)
         r, n = corr(g, TARGET_X, TARGET_Y, TARGET_METHOD)
@@ -314,7 +342,9 @@ headline = target[target["sample"] == "with2284"].sort_values(
 ambient_compare = target[target["sample"].isin(["with2284", "ambient_no2284"])].copy()
 
 summary_lines = []
-summary_lines.append("Final science sample locked")
+summary_lines.append(
+    "Final science sample locked (ICME hours removed)" if ICME_FILTER else "Final science sample locked"
+)
 summary_lines.append(f"Included CRs: {FINAL_CRS}")
 summary_lines.append(f"Debug-only CRs excluded from final science metrics: {DEBUG_ONLY_CRS}")
 summary_lines.append("")

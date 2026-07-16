@@ -3,15 +3,14 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-data/raw/
-data/interim/
-data/processed/
+# Data is downloaded/derived, never committed
+data/
 
+# Only final tables and results are tracked
 outputs/*
-!outputs/
-!outputs/results/
-!outputs/results/final/
-!outputs/results/final/*.txt
 !outputs/tables/
+outputs/tables/*
 !outputs/tables/final/
-!outputs/tables/final/*.csv
+!outputs/results/
+outputs/results/*
+!outputs/results/final/
